@@ -52,7 +52,6 @@ def set_admin(id, username):
 def checkUser(message):
 	sender_id = message.from_user.id
 	username = message.from_user.username
-	print(username)
 	if username in candidates:
 		set_admin(sender_id, username)
 	users[username] = int(sender_id)
@@ -78,8 +77,8 @@ def show_admins(message):
 	for i in admins:
 		a = getKey(users, i)
 		if a != None:
-			resp += a+" "
-	#bot.send_message(message.chat.id, resp)
+			resp += "@"+a+" "
+	bot.send_message(message.chat.id, resp)
 
 
 
@@ -111,13 +110,18 @@ def remove_admin(message):
 @bot.message_handler(content_types=['text'])
 def main(message):
 	checkUser(message)
-
 	bot.send_message(message.chat.id, message.text)
 	rewriteConfig()
 
 
 
 if __name__ == '__main__':
+	print(admins)
+	print(candidates)
+	print(users)
+	#users.clear()
+	#admins.clear()
+	#admins.add(5844335)'''
 	bot.polling(none_stop=True)
 
 
