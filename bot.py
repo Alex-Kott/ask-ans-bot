@@ -2,10 +2,8 @@ import telebot
 import sqlite3
 import re
 import pickle
-'''
-from config import token as token
-from config import admins as admins
-from config import candidates as candidates'''
+from peewee import *
+from playhouse.sqlite_ext import *
 
 config_file = 'data.pickle'
 
@@ -66,6 +64,20 @@ def getKey(dict, value):
 def add_reply(message):
 	sender_id = message.from_user.id
 	if (sender_id in admins):
+		question = re.findall(r'[\w|\s]*\?', message.text)
+		answer = re.findall(r'[\?](\w|\W)*$', message.text)
+		answer = answer[1:]
+		print(question)
+		print(answer)
+		
+		conn = sqlite3.connect('ask-ans-bot.db')
+		curr = conn.cursor()
+		insert_query = '''
+		INSERT INTO questions(`qtext`, `answer`)
+		VALUES ('{0}', '{1}')
+		'''.format(question, answer)
+		curr.execute(insert_query)
+		conn.commit()
 		bot.send_message(message.chat.id, message.text)
 	else:
 		bot.send_message(message.chat.id, "Lol you")
@@ -113,32 +125,26 @@ def main(message):
 	bot.send_message(message.chat.id, message.text)
 	rewriteConfig()
 
+def init_db():
+	conn = sqlite3.connect('ask-ans-bot.db')
+	curr = conn.cursor()
+	create_table = '''
+	CREATE TABLE IF NOT EXISTS questions(
+		`qid` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+		`qtext` TEXT NOT NULL,
+		`answer` TEXT NOT NULL
+	)'''
+	curr.execute(create_table)
+	conn.commit()
+	conn.close()
+
 
 
 if __name__ == '__main__':
-	print(admins)
-	print(candidates)
-	print(users)
-	#users.clear()
-	#admins.clear()
-	#admins.add(5844335)'''
+	init_db()
 	bot.polling(none_stop=True)
 
 
 
 
 
-
-def lol():
-	con = sqlite3.connect('bot.db')
-	cur = con.cursor()
-	create_questions = '''
-	CREATE TABLE questions(
-		qid INTEGER NOT NUL AUTOINCREMENT,
-		qtext TEXT NOT NULL,
-		answer TEXT NOT NULL
-	)'''
-	cur.execute(create_questions)
-	con.commit()
-
-	con.close()
