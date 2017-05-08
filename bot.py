@@ -64,21 +64,23 @@ def getKey(dict, value):
 def add_reply(message):
 	sender_id = message.from_user.id
 	if (sender_id in admins):
+		message.text = message.text[11:]
 		question = re.findall(r'[\w|\s]*\?', message.text)
-		answer = re.findall(r'[\?](\w|\W)*$', message.text)
+		answer = re.findall(r'[\?](\w|\W)*\$', message.text)
 		answer = answer[1:]
 		print(question)
 		print(answer)
-		
+		"""
 		conn = sqlite3.connect('ask-ans-bot.db')
 		curr = conn.cursor()
 		insert_query = '''
 		INSERT INTO questions(`qtext`, `answer`)
 		VALUES ('{0}', '{1}')
 		'''.format(question, answer)
+		print(insert_query)
 		curr.execute(insert_query)
 		conn.commit()
-		bot.send_message(message.chat.id, message.text)
+		bot.send_message(message.chat.id, message.text)"""
 	else:
 		bot.send_message(message.chat.id, "Lol you")
 
