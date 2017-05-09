@@ -15,6 +15,7 @@ with open(sys_data_file, 'rb') as f:
 db = SqliteExtDatabase(config.db_name, threadlocals=True)
 
 
+
 token = sys_data['token']
 admins = set(sys_data['admins'])
 candidates = set(sys_data['candidates'])
@@ -74,7 +75,7 @@ def add_reply(message):
 		conn = sqlite.connect(config.db_name)
 		cur = conn.cursor()
 		query = '''
-		INSERT INTO questions(`qtext`, `answer`)
+		INSERT INTO questions(`question`, `answer`)
 		VALUES ('{0}', '{1}')
 		'''.format(question, answer)
 		try:
@@ -156,7 +157,7 @@ def init_db():
 	create_table = '''
 	CREATE TABLE IF NOT EXISTS questions(
 		`qid` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-		`qtext` TEXT NOT NULL,
+		`question` TEXT NOT NULL,
 		`answer` TEXT NOT NULL
 	)'''
 	curr.execute(create_table)
