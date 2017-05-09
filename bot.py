@@ -1,38 +1,40 @@
+import config
 import telebot
-import sqlite3
+import sqlite3 as sqlite
 import re
 import pickle
 from peewee import *
-from playhouse.sqlite_ext import *
+from playhouse.sqlite_ext import SqliteExtDatabase
 
-config_file = 'data.pickle'
+sys_data_file = 'data.pickle'
 
-with open(config_file, 'rb') as f:
-	config = pickle.load(f)
+with open(sys_data_file, 'rb') as f:
+	sys_data = pickle.load(f)
 	f.close()
 
+db = SqliteExtDatabase(config.db_name, threadlocals=True)
 
 
-token = config['token']
-admins = set(config['admins'])
-candidates = set(config['candidates'])
+token = sys_data['token']
+admins = set(sys_data['admins'])
+candidates = set(sys_data['candidates'])
 try:
-	config['users']
-	users = config['users']
+	sys_data['users']
+	users = sys_data['users']
 except KeyError:
 	users = {}
 
 bot = telebot.TeleBot(token)
 
 
-def rewriteConfig():
+def rewrite_sys_data():
 	data = {
 		'token': token,
 		'admins': admins,
 		'candidates': candidates,
 		'users': users
 	}
-	with open(config_file, "wb") as f:
+	with open(sys_data_file, "wb") as f:
 		pickle.dump(data, f)
 
 	
@@ -43,7 +45,7 @@ def set_admin(id, username):
 		admins.add(id)
 	except ValueError:
 		print("Candidate is not exist")
-	rewriteConfig()
+	rewrite_sys_data()
 	
 
 
@@ -65,24 +67,28 @@ def add_reply(message):
 	sender_id = message.from_user.id
 	if (sender_id in admins):
 		message.text = message.text[11:]
-		question = re.findall(r'[\w|\s]*\?', message.text)
-		answer = re.findall(r'[\?](\w|\W)*\$', message.text)
-		answer = answer[1:]
-		print(question)
-		print(answer)
-		"""
-		conn = sqlite3.connect('ask-ans-bot.db')
-		curr = conn.cursor()
-		insert_query = '''
+		delimiter = message.text.rfind("?")+1
+		question = message.text[:delimiter]
+		answer = message.text[delimiter:]
+		answer = answer.lstrip()
+		conn = sqlite.connect(config.db_name)
+		cur = conn.cursor()
+		query = '''
 		INSERT INTO questions(`qtext`, `answer`)
 		VALUES ('{0}', '{1}')
 		'''.format(question, answer)
-		print(insert_query)
-		curr.execute(insert_query)
+		try:
+			cur.execute(query)
+		except sqlite.DatabaseError as err:
+			response = "Ошибка: "+err
+		else:
+			response = "Вопрос добавлен"
 		conn.commit()
-		bot.send_message(message.chat.id, message.text)"""
+		cur.close()
+		conn.close()
+		bot.send_message(message.chat.id, response)
 	else:
-		bot.send_message(message.chat.id, "Lol you")
+		bot.send_message(message.chat.id, "Вы не можете добавлять вопросы")
 
 
 @bot.message_handler(commands = ['show_admins'])
@@ -94,6 +100,23 @@ def show_admins(message):
 			resp += "@"+a+" "
 	bot.send_message(message.chat.id, resp)
 
+@bot.message_handler(commands = ['show_questions'])
+def show_questions(message):
+	resp = ''
+	conn = sqlite.connect(config.db_name)
+	curr = conn.cursor()
+	query = 'SELECT * FROM questions'
+	query_result = curr.execute(query)
+	data = query_result.fetchall()
+	response = ''
+	if len(data) == 0:
+		response = "База вопросов пуста"
+		bot.send_message(message.chat.id, response)
+	else:
+		for i in data:
+			response += "Вопрос: "+i[1]+"\nОтвет: "+i[2]+" \n\n"
+		bot.send_message(message.chat.id, response)
+
 
 
 @bot.message_handler(commands = ['add_admin'])
@@ -104,7 +127,7 @@ def add_admin(message):
 		for u in units:
 			u = u[1:]
 			candidates.add(u)
-		rewriteConfig()
+		rewrite_sys_data()
 
 
 @bot.message_handler(commands = ['remove_admin'])
@@ -118,17 +141,17 @@ def remove_admin(message):
 				admins.remove(int(users[u]))
 			except KeyError:
 				bot.send_message(message.chat.id, "Админа {} не найдено".format(u))
-		rewriteConfig()
+		rewrite_sys_data()
 		
 
 @bot.message_handler(content_types=['text'])
 def main(message):
 	checkUser(message)
 	bot.send_message(message.chat.id, message.text)
-	rewriteConfig()
+	rewrite_sys_data()
 
 def init_db():
-	conn = sqlite3.connect('ask-ans-bot.db')
+	conn = sqlite.connect(config.db_name)
 	curr = conn.cursor()
 	create_table = '''
 	CREATE TABLE IF NOT EXISTS questions(
