@@ -4,7 +4,7 @@ import sqlite3 as sqlite
 import re
 import pickle
 from peewee import *
-from playhouse.sqlite_ext import SqliteExtDatabase
+from playhouse.sqlite_ext import *
 
 sys_data_file = 'data.pickle'
 
@@ -14,7 +14,19 @@ with open(sys_data_file, 'rb') as f:
 
 db = SqliteExtDatabase(config.db_name, threadlocals=True)
 
+class Entry(Model):
+	question = TextField()
+	answer = TextField()
 
+	class Meta:
+		database = db
+
+class FTSEntry(FTSModel):
+	entry_id = IntegerField()
+	content = TextField()
+
+	class Meta:
+		database = db
 
 token = sys_data['token']
 admins = set(sys_data['admins'])
@@ -72,21 +84,16 @@ def add_reply(message):
 		question = message.text[:delimiter]
 		answer = message.text[delimiter:]
 		answer = answer.lstrip()
-		conn = sqlite.connect(config.db_name)
-		cur = conn.cursor()
-		query = '''
-		INSERT INTO questions(`question`, `answer`)
-		VALUES ('{0}', '{1}')
-		'''.format(question, answer)
 		try:
-			cur.execute(query)
-		except sqlite.DatabaseError as err:
-			response = "Ошибка: "+err
-		else:
-			response = "Вопрос добавлен"
-		conn.commit()
-		cur.close()
-		conn.close()
+			entry = Entry.create(
+			      question=question,
+			      answer=answer)
+			FTSEntry.create(
+			  entry_id=entry.id,
+			  content='\n'.join((entry.question, entry.answer)))
+			response = "Вопрос успешно добавлен."
+		except:
+			response = "Что-то пошло не так, вопрос не добавлен."
 		bot.send_message(message.chat.id, response)
 	else:
 		bot.send_message(message.chat.id, "Вы не можете добавлять вопросы")
@@ -143,6 +150,21 @@ def remove_admin(message):
 			except KeyError:
 				bot.send_message(message.chat.id, "Админа {} не найдено".format(u))
 		rewrite_sys_data()
+
+def search_answer(text):
+	words = set(text.split())
+	
+	print(words)
+	'''
+	query = (FTSEntry
+	         .select(Entry.question, Entry.answer)
+	         .join(
+	             Entry,
+	             on=(FTSEntry.entry_id == Entry.id).alias('entry'))
+	         .where(FTSEntry.match('javascript AND canvas'))
+	         .dicts())
+	for row_dict in query:
+	    print row_dict'''
 		
 
 @bot.message_handler(content_types=['text'])
@@ -150,6 +172,7 @@ def main(message):
 	checkUser(message)
 	bot.send_message(message.chat.id, message.text)
 	rewrite_sys_data()
+	search_answer(message.text)
 
 def init_db():
 	conn = sqlite.connect(config.db_name)
