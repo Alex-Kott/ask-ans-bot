@@ -95,7 +95,7 @@ def add_reply(message):
 			      answer=answer)
 			FTSEntry.create(
 			  entry_id=entry.id,
-			  content='\n'.join((entry.question, entry.answer)))
+			  content='\n'.join((entry.question.lower(), entry.answer.lower())))
 			response = "Вопрос успешно добавлен."
 		except:
 			response = "Что-то пошло не так, вопрос не добавлен."
@@ -165,7 +165,6 @@ def show_questions(message):
 
 def search_answer(text):
 	words = divide_into_words(text)
-	print(words)
 	response = set()
 	for word in words:
 		query = (FTSEntry
