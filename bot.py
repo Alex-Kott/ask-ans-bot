@@ -179,7 +179,10 @@ def search_answer(text):
 			response.add(item)
 	if(len(response) == 0):
 		response = 'Ничего не найдено.'
-	return response
+	result = ''
+	for item in response:
+		result += item
+	return result
 
 		
 def divide_into_words(text): # функция не только делит строку на отдельные лексемы, 
