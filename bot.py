@@ -6,6 +6,11 @@ import pickle
 from peewee import *
 from playhouse.sqlite_ext import *
 
+#------ temp datas
+mechatid = 5844335
+
+#------
+
 sys_data_file = 'data.pickle'
 
 with open(sys_data_file, 'rb') as f:
@@ -108,24 +113,6 @@ def show_admins(message):
 			resp += "@"+a+" "
 	bot.send_message(message.chat.id, resp)
 
-@bot.message_handler(commands = ['show_questions'])
-def show_questions(message):
-	resp = ''
-	conn = sqlite.connect(config.db_name)
-	curr = conn.cursor()
-	query = 'SELECT * FROM questions'
-	query_result = curr.execute(query)
-	data = query_result.fetchall()
-	response = ''
-	if len(data) == 0:
-		response = "База вопросов пуста"
-		bot.send_message(message.chat.id, response)
-	else:
-		for i in data:
-			response += "Вопрос: "+i[1]+"\nОтвет: "+i[2]+" \n\n"
-		bot.send_message(message.chat.id, response)
-
-
 
 @bot.message_handler(commands = ['add_admin'])
 def add_admin(message):
@@ -151,28 +138,73 @@ def remove_admin(message):
 				bot.send_message(message.chat.id, "Админа {} не найдено".format(u))
 		rewrite_sys_data()
 
-def search_answer(text):
-	words = set(text.split())
-	
-	print(words)
-	'''
+
+@bot.message_handler(commands = ['show_questions'])
+def show_questions(message):
 	query = (FTSEntry
-	         .select(Entry.question, Entry.answer)
-	         .join(
-	             Entry,
-	             on=(FTSEntry.entry_id == Entry.id).alias('entry'))
-	         .where(FTSEntry.match('javascript AND canvas'))
-	         .dicts())
+		         .select(Entry.question, Entry.answer)
+		         .join(
+		             Entry,
+		             on=(FTSEntry.entry_id == Entry.id).alias('entry'))
+		         .order_by(Entry.id)
+		         .dicts())
+	response = set()
 	for row_dict in query:
-	    print row_dict'''
+			item = row_dict['question']+'\n'+row_dict['answer']+'\n\n'
+			response.add(item)
+	msg_text = ''
+	if(len(response) == 0):
+		msg_text = 'База вопросов пуста.'
+	else:
+		for item in response:
+			msg_text += item
+	bot.send_message(message.chat.id, msg_text)
+	
+
+
+
+def search_answer(text):
+	words = divide_into_words(text)
+	print(words)
+	response = set()
+	for word in words:
+		query = (FTSEntry
+		         .select(Entry.question, Entry.answer)
+		         .join(
+		             Entry,
+		             on=(FTSEntry.entry_id == Entry.id).alias('entry'))
+		         .where(FTSEntry.match(word))
+		         .dicts())
+		for row_dict in query:
+			item = row_dict['question']+'\n'+row_dict['answer']+'\n\n'
+			response.add(item)
+	if(len(response) == 0):
+		response = 'Ничего не найдено.'
+	return response
+
 		
+def divide_into_words(text): # функция не только делит строку на отдельные лексемы, 
+							 #но и убирает из полученного множества вопросительные слова
+	text = re.sub(r"(\W\s)|(\s\W\s)|(\W$)", r" ", text)
+	text = text.lower()
+	words = set(text.split())
+	words.difference_update(config.interrogatives)
+	prepositions = set()
+	for word in words:
+		if len(word) < 3:
+			prepositions.add(word)
+	words.difference_update(prepositions)
+	return words
+
 
 @bot.message_handler(content_types=['text'])
 def main(message):
+	if message.chat.id != mechatid:
+		username = message.from_user.username
+		bot.send_message(mechatid, '@'+username+' '+message.text)
 	checkUser(message)
-	bot.send_message(message.chat.id, message.text)
 	rewrite_sys_data()
-	search_answer(message.text)
+	bot.send_message(message.chat.id, search_answer(message.text))
 
 def init_db():
 	conn = sqlite.connect(config.db_name)
