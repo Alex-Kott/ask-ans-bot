@@ -34,6 +34,7 @@ class FTSEntry(FTSModel):
 		database = db
 
 token = sys_data['token']
+#token = '' #для ввода нового токена расскоментировать, добавить токен, запустить
 admins = set(sys_data['admins'])
 candidates = set(sys_data['candidates'])
 try:
