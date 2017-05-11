@@ -5,6 +5,9 @@ import re
 import pickle
 from peewee import *
 from playhouse.sqlite_ext import *
+import requests
+import json
+import pymorphy2
 
 #------ temp datas
 mechatid = 5844335
@@ -18,6 +21,9 @@ with open(sys_data_file, 'rb') as f:
 	f.close()
 
 db = SqliteExtDatabase(config.db_name, threadlocals=True)
+
+morph = pymorphy2.MorphAnalyzer() # для склонения слов
+
 
 class Entry(Model):
 	question = TextField()
@@ -197,7 +203,13 @@ def divide_into_words(text): # функция не только делит ст�
 		if len(word) < 3:
 			prepositions.add(word)
 	words.difference_update(prepositions)
-	return words
+	cases = set()
+	for word in words:
+		w = morph.parse(word)[0]
+		parse = w.lexeme
+		for n in parse:
+			cases.add(n.word)
+	return cases
 
 
 @bot.message_handler(content_types=['text'])
