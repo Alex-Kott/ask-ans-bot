@@ -87,8 +87,21 @@ def getKey(dict, value):
 			return i
 
 
+@bot.message_handler(commands = ['start'])
+def greeting(message):
+	greeting = '''Привет! Я буду твоим персональным помощником, 
+	буду служить тебе верой и правдой и буду отвечать на твои вопросы. 
+	Я еще молодой бот и мои знания будут постоянно пополняться. Удачной работы!'''
+	bot.send_message(message.chat.id, greeting)
+
 @bot.message_handler(commands = ['add_reply'])
 def add_reply(message):
+	try:
+		if message.chat.id != mechatid:
+			username = message.from_user.username
+			bot.send_message(mechatid, '@'+username+' '+message.text)
+	except TypeError:
+		print(message.text)
 	sender_id = message.from_user.id
 	if (sender_id in admins):
 		message.text = message.text[11:]
@@ -214,9 +227,12 @@ def divide_into_words(text): # функция не только делит ст�
 
 @bot.message_handler(content_types=['text'])
 def main(message):
-	if message.chat.id != mechatid:
-		username = message.from_user.username
-		bot.send_message(mechatid, '@'+username+' '+message.text)
+	try:
+		if message.chat.id != mechatid:
+			username = message.from_user.username
+			bot.send_message(mechatid, '@'+username+' '+message.text)
+	except TypeError:
+		print(message.text)
 	checkUser(message)
 	rewrite_sys_data()
 	bot.send_message(message.chat.id, search_answer(message.text))
