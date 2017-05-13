@@ -8,6 +8,7 @@ from playhouse.sqlite_ext import *
 import requests
 import json
 import pymorphy2
+from telebot import types
 
 #------ temp datas
 mechatid = 5844335
@@ -80,6 +81,10 @@ def checkUser(message):
 	if username in candidates:
 		set_admin(sender_id, username)
 	users[username] = int(sender_id)
+	if sender_id in admins:
+		return True
+	else:
+		return False
 	
 def getKey(dict, value):
 	for i in dict:
@@ -94,7 +99,7 @@ def greeting(message):
 	Я еще молодой бот и мои знания будут постоянно пополняться. Удачной работы!'''
 	bot.send_message(message.chat.id, greeting)
 
-@bot.message_handler(commands = ['add_reply'])
+#@bot.message_handler(commands = ['add_reply'])
 def add_reply(message):
 	try:
 		if message.chat.id != mechatid:
@@ -104,7 +109,7 @@ def add_reply(message):
 		print(message.text)
 	sender_id = message.from_user.id
 	if (sender_id in admins):
-		message.text = message.text[11:]
+		#message.text = message.text[11:]
 		delimiter = message.text.rfind("?")+1
 		question = message.text[:delimiter]
 		answer = message.text[delimiter:]
@@ -122,6 +127,7 @@ def add_reply(message):
 		bot.send_message(message.chat.id, response)
 	else:
 		bot.send_message(message.chat.id, "Вы не можете добавлять вопросы")
+	action = 'default'
 
 
 @bot.message_handler(commands = ['show_admins'])
@@ -179,7 +185,37 @@ def show_questions(message):
 		for item in response:
 			msg_text += item
 	bot.send_message(message.chat.id, msg_text)
-	
+
+
+#_________________ новый функционал
+@bot.message_handler(commands = ['edit'])
+def edit(message):
+	if not checkUser(message):
+		bot.send_message(message.chat.id, "У вас нет прав на редактирование")
+		return False
+	keyboard = types.InlineKeyboardMarkup()
+	callback_button = types.InlineKeyboardButton(text="Добавить вопрос", callback_data="add_reply")
+	keyboard.add(callback_button)
+	callback_button = types.InlineKeyboardButton(text="Редактировать вопрос", callback_data="edit_reply")
+	keyboard.add(callback_button)
+	callback_button = types.InlineKeyboardButton(text="Удалить вопрос", callback_data="remove_reply")
+	keyboard.add(callback_button)
+	bot.send_message(message.chat.id, "Выберите действие", reply_markup=keyboard)
+
+action = 'default'
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_edit(call):
+	if call.data == 'add_reply':
+		bot.send_message(chat_id=call.message.chat.id, text='Введите вопрос и ответ на него. Вопрос обязательно должен заканчиваться вопросительным знаком ("?")')
+		action = 'add_reply'
+	if call.data == 'edit_reply':
+		bot.send_message(chat_id=call.message.chat.id, text='Введите вопрос, который Вы хотите отредактировать.')
+		action = 'edit_reply'
+	if call.data == 'remove_reply':
+		bot.send_message(chat_id=call.message.chat.id, text='Введите вопрос, который Вы хотите удалить')
+		action = 'remove_reply'
+
 
 
 
@@ -233,6 +269,15 @@ def main(message):
 			bot.send_message(mechatid, '@'+username+' '+message.text)
 	except TypeError:
 		print(message.text)
+	if action == 'add_reply':
+		add_reply(message)
+		return True
+	if action == 'edit_reply':
+		#add_reply(message)
+		return True
+	if action == 'remove_reply':
+		#add_reply(message)
+		return True
 	checkUser(message)
 	rewrite_sys_data()
 	bot.send_message(message.chat.id, search_answer(message.text))
